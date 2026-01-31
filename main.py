@@ -3,12 +3,21 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models, schemas
+import os
 from ai_insights import generate_insights
+from fastapi.middleware.cors import CORSMiddleware
+
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mushroom Farming AI")
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # OK for now, tighten later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 def get_db():
     db = SessionLocal()
     try:
