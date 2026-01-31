@@ -1,62 +1,54 @@
-
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
-from database import SessionLocal, engine
-import models, schemas
-import os
-from ai_insights import generate_insights
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from database import engine, get_db
+import models
+import os
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
 
+# Create database tables
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Mushroom Farming AI")
+# Initialize FastAPI app
+app = FastAPI(
+    title="Mushroom Farming Optimization API",
+    description="RESTful API for mushroom farming data management and AI-powered insights",
+    version="1.0.0"
+)
+
+# CORS configuration
+CORS_ORIGIN = os.getenv("CORS_ORIGIN", "http://localhost:5173")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # OK for now, tighten later
+    allow_origins=[CORS_ORIGIN, "http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
-@app.post("/batches")
-def create_batch(batch: schemas.BatchCreate, db: Session = Depends(get_db)):
-    b = models.Batch(**batch.dict())
-    db.add(b)
-    db.commit()
-    db.refresh(b)
-    return b
+# Include routers
+from routes import batches, observations, harvests, insights
 
-@app.get("/batches")
-def list_batches(db: Session = Depends(get_db)):
-    return db.query(models.Batch).all()
+app.include_router(batches.router)
+app.include_router(observations.router)
+app.include_router(harvests.router)
+app.include_router(insights.router)
 
-@app.post("/batches/{batch_id}/observations")
-def add_observation(batch_id: int, obs: schemas.ObservationCreate, db: Session = Depends(get_db)):
-    o = models.DailyObservation(batch_id=batch_id, **obs.dict())
-    db.add(o)
-    db.commit()
-    return o
 
-@app.post("/batches/{batch_id}/harvests")
-def add_harvest(batch_id: int, h: schemas.HarvestCreate, db: Session = Depends(get_db)):
-    hv = models.Harvest(batch_id=batch_id, **h.dict())
-    db.add(hv)
-    db.commit()
-    return hv
+@app.get("/")
+def root():
+    """Root endpoint"""
+    return {
+        "message": "Mushroom Farming Optimization API",
+        "version": "1.0.0",
+        "docs": "/docs"
+    }
 
-@app.get("/batches/{batch_id}/insights")
-def get_insights(batch_id: int, db: Session = Depends(get_db)):
-    obs = db.query(models.DailyObservation).filter_by(batch_id=batch_id).all()
-    harv = db.query(models.Harvest).filter_by(batch_id=batch_id).all()
 
-    obs_data = [o.__dict__ for o in obs]
-    harv_data = [h.__dict__ for h in harv]
-
-    return generate_insights(obs_data, harv_data)
+@app.get("/health")
+def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
