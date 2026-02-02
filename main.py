@@ -20,12 +20,13 @@ app = FastAPI(
 )
 
 # CORS configuration
-CORS_ORIGIN = os.getenv("CORS_ORIGIN", "http://localhost:5173")
+# Allow all origins for GitHub Pages deployment
+# Since frontend doesn't use credentials, this is safe
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[CORS_ORIGIN, "http://localhost:3000", "http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
