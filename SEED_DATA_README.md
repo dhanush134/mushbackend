@@ -1,8 +1,6 @@
 # Seed Data Script Usage
 
-This script populates the database with hardcoded mushroom farming data for demonstration purposes.
-
-## What It Does
+The database is **automatically seeded on startup** when you run the FastAPI server. No manual command needed!
 
 The `seed_data.py` script creates:
 
@@ -22,32 +20,30 @@ The `seed_data.py` script creates:
 
 ## How to Use
 
-### First Time Setup
+### Automatic Seeding (Recommended)
 
-1. Make sure you have all dependencies installed:
-   ```bash
-   pip install -r requirements.txt
-   ```
+The database is **automatically seeded on startup**. Just start the server:
 
-2. Run the seed script:
-   ```bash
-   python seed_data.py
-   ```
+```bash
+uvicorn main:app --reload
+```
 
-3. Start the API server:
-   ```bash
-   uvicorn main:app --reload
-   ```
+The server will:
+1. Check if seeded batches (Dhanush, Rakesh, Gagan) exist
+2. If they don't exist, automatically seed the database
+3. If they exist, skip seeding (preserves your data)
 
-### Re-seeding Data
+**No manual commands needed!** This works in both development and production deployments.
 
-If you want to clear existing data and re-seed:
+### Manual Re-seeding (Optional)
+
+If you want to clear existing data and re-seed manually:
 
 ```bash
 python seed_data.py
 ```
 
-**Note**: The script will **delete all existing data** before seeding new data.
+**Note**: The manual script will **delete all existing data** before seeding new data.
 
 ### Customizing the Script
 

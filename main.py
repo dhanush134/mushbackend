@@ -5,6 +5,7 @@ from database import engine, get_db
 import models
 import os
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 
 # Load environment variables
 load_dotenv()
@@ -12,11 +13,31 @@ load_dotenv()
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
-# Initialize FastAPI app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events"""
+    # Startup: Seed database if needed
+    print("Checking database for seeded data...")
+    try:
+        from seed_data import seed_database
+        seed_database(clear_existing=False)
+        print("Database ready with seeded data.")
+    except Exception as e:
+        print(f"Warning: Could not seed database: {e}")
+        print("Database will start without seeded data.")
+    
+    yield
+    
+    # Shutdown (if needed)
+    pass
+
+# Initialize FastAPI app with lifespan events
 app = FastAPI(
     title="Mushroom Farming Optimization API",
     description="RESTful API for mushroom farming data management and AI-powered insights",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS configuration

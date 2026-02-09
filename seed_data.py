@@ -53,17 +53,37 @@ def get_co2_level(temperature: float, humidity: float) -> str:
         return "medium"
 
 
-def seed_database():
-    """Main function to seed the database"""
+def seed_database(clear_existing: bool = False):
+    """
+    Main function to seed the database
+    
+    Args:
+        clear_existing: If True, clears all existing data before seeding. 
+                       If False, only seeds if the seeded batches don't exist.
+    """
+    # Use fixed seed for consistent data across deployments
+    random.seed(42)
+    
     db: Session = SessionLocal()
     
     try:
-        # Clear existing data (optional - comment out if you want to keep existing data)
-        print("Clearing existing data...")
-        db.query(models.Harvest).delete()
-        db.query(models.DailyObservation).delete()
-        db.query(models.Batch).delete()
-        db.commit()
+        # Check if seeded batches already exist
+        existing_batches = db.query(models.Batch).filter(
+            models.Batch.username.in_(["Dhanush", "Rakesh", "Gagan"])
+        ).all()
+        
+        if existing_batches and not clear_existing:
+            # Silently skip if batches exist (for production)
+            return
+        
+        # Clear existing data if requested or if we're re-seeding
+        if clear_existing or existing_batches:
+            if clear_existing:
+                print("Clearing existing data...")
+            db.query(models.Harvest).delete()
+            db.query(models.DailyObservation).delete()
+            db.query(models.Batch).delete()
+            db.commit()
         
         # Batch configuration
         batches_config = [
@@ -85,7 +105,9 @@ def seed_database():
         
         batch_ids = []
         
-        print(f"Creating {len(batches_config)} batches...")
+        # Create batches (silent in production, verbose in script mode)
+        if clear_existing or not existing_batches:
+            print(f"Creating {len(batches_config)} batches...")
         
         # Create batches
         for batch_config in batches_config:
@@ -99,14 +121,16 @@ def seed_database():
             db.add(batch)
             db.flush()  # Get batch_id
             batch_ids.append(batch.batch_id)
-            print(f"  Created batch: {batch_config['name']} (ID: {batch.batch_id})")
+            if clear_existing or not existing_batches:
+                print(f"  Created batch: {batch_config['name']} (ID: {batch.batch_id})")
         
         db.commit()
         
         # Create observations and harvests for each batch
         for idx, batch_id in enumerate(batch_ids):
             batch_name = batches_config[idx]["name"]
-            print(f"\nProcessing batch: {batch_name} (ID: {batch_id})")
+            if clear_existing or not existing_batches:
+                print(f"\nProcessing batch: {batch_name} (ID: {batch_id})")
             
             total_yield_kg = 0.0
             flush_number = 1
@@ -175,24 +199,27 @@ def seed_database():
                         db.add(harvest)
                         flush_number += 1
                         
-                        print(f"  Day {day_offset + 1} ({current_date}): Harvest Flush {flush_number - 1} = {harvest_yield} kg")
+                        if clear_existing or not existing_batches:
+                            print(f"  Day {day_offset + 1} ({current_date}): Harvest Flush {flush_number - 1} = {harvest_yield} kg")
             
             db.commit()
-            print(f"  Completed: {batch_name} - {total_days} observations, {flush_number - 1} harvests, Total yield: {total_yield_kg:.2f} kg")
+            if clear_existing or not existing_batches:
+                print(f"  Completed: {batch_name} - {total_days} observations, {flush_number - 1} harvests, Total yield: {total_yield_kg:.2f} kg")
         
-        print("\n" + "="*60)
-        print("Database seeding completed successfully!")
-        print("="*60)
-        print(f"\nCreated batches:")
-        for idx, batch_id in enumerate(batch_ids):
-            batch = db.query(models.Batch).filter(models.Batch.batch_id == batch_id).first()
-            obs_count = db.query(models.DailyObservation).filter(
-                models.DailyObservation.batch_id == batch_id
-            ).count()
-            harvest_count = db.query(models.Harvest).filter(
-                models.Harvest.batch_id == batch_id
-            ).count()
-            print(f"  - {batch.username}: {obs_count} observations, {harvest_count} harvests")
+        if clear_existing or not existing_batches:
+            print("\n" + "="*60)
+            print("Database seeding completed successfully!")
+            print("="*60)
+            print(f"\nCreated batches:")
+            for idx, batch_id in enumerate(batch_ids):
+                batch = db.query(models.Batch).filter(models.Batch.batch_id == batch_id).first()
+                obs_count = db.query(models.DailyObservation).filter(
+                    models.DailyObservation.batch_id == batch_id
+                ).count()
+                harvest_count = db.query(models.Harvest).filter(
+                    models.Harvest.batch_id == batch_id
+                ).count()
+                print(f"  - {batch.username}: {obs_count} observations, {harvest_count} harvests")
         
     except Exception as e:
         db.rollback()
@@ -205,7 +232,7 @@ def seed_database():
 if __name__ == "__main__":
     print("Starting database seeding...")
     print("="*60)
-    seed_database()
+    seed_database(clear_existing=True)
     print("\nYou can now use the API endpoints to fetch this data:")
     print("  - GET /api/batches - Get all batches")
     print("  - GET /api/batches/{batch_id} - Get batch with observations and harvests")
